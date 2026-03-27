@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info:
+  title: AI Copilot Service
+  version: 0.1.0
+paths:
+  /copilot/query:
+    post:
+      summary: Ask the trading copilot a question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                accountId: { type: string, format: uuid }
+                contextType: { type: string, enum: [portfolio, risk, orders, strategy, audit, operations] }
+      responses:
+        '200': { description: Copilot answer returned }
+  /copilot/explain-order/{orderId}:
+    get:
+      summary: Explain order lifecycle and current status
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Explanation returned }

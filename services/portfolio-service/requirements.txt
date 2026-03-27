@@ -1,0 +1,1 @@
+-r /app/shared/requirements.txt

@@ -1,0 +1,25 @@
+openapi: 3.1.0
+info:
+  title: Portfolio Service
+  version: 0.1.0
+paths:
+  /portfolio/{accountId}:
+    get:
+      summary: Get current portfolio state
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Portfolio returned }
+  /portfolio/{accountId}/pnl:
+    get:
+      summary: Get PnL summary
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: PnL returned }

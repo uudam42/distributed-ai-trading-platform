@@ -1,0 +1,225 @@
+x-common-env: &common-env
+  DATABASE_URL: ${DATABASE_URL}
+  KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+  JWT_SECRET: ${JWT_SECRET}
+  JWT_ISSUER: ${JWT_ISSUER}
+  JWT_AUDIENCE: ${JWT_AUDIENCE}
+  AUTH_SERVICE_URL: http://auth-service:8081
+  ORDER_SERVICE_URL: http://order-service:8082
+  PORTFOLIO_SERVICE_URL: http://portfolio-service:8085
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: trading-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: trading-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: api-gateway
+      SERVICE_PORT: 8080
+    command: ["uvicorn", "service.app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    ports:
+      - "8090:8080"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      portfolio-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: auth-service
+      SERVICE_PORT: 8081
+    command: ["uvicorn", "service.app.main:app", "--host", "0.0.0.0", "--port", "8081"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8081/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: order-service
+      SERVICE_PORT: 8082
+    command: ["uvicorn", "service.app.main:app", "--host", "0.0.0.0", "--port", "8082"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8082/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  risk-service:
+    build:
+      context: .
+      dockerfile: services/risk-service/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: risk-service
+      SERVICE_PORT: 8083
+    command: ["uvicorn", "service.app.main:app", "--host", "0.0.0.0", "--port", "8083"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8083/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  matching-engine:
+    build:
+      context: .
+      dockerfile: services/matching-engine/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: matching-engine
+      SERVICE_PORT: 8084
+    command: ["uvicorn", "service.app.main:app", "--host", "0.0.0.0", "--port", "8084"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8084/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  portfolio-service:
+    build:
+      context: .
+      dockerfile: services/portfolio-service/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: portfolio-service
+      SERVICE_PORT: 8085
+    command: ["uvicorn", "service.app.main:app", "--host", "0.0.0.0", "--port", "8085"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8085/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  audit-service:
+    build:
+      context: .
+      dockerfile: services/audit-service/Dockerfile
+    environment:
+      <<: *common-env
+      SERVICE_NAME: audit-service
+      SERVICE_PORT: 8086
+    command: ["uvicorn", "service.app.main:app", "--host", "0.0.0.0", "--port", "8086"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8086/health')\"" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  strategy-runner:
+    build:
+      context: .
+      dockerfile: strategy_service/Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    profiles: ["strategy"]
+
+  ai-copilot-service:
+    build:
+      context: .
+      dockerfile: ai_copilot_service/Dockerfile
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      VLLM_BASE_URL: http://vllm:8000/v1
+      VLLM_MODEL: ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct}
+      AI_MOCK_MODE: ${AI_MOCK_MODE:-true}
+    ports:
+      - "8091:8091"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    profiles: ["ai"]
+
+volumes:
+  postgres_data:

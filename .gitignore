@@ -1,0 +1,31 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.venv/
+.venv-*/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Runtime / generated outputs
+logs/
+strategy_service/reports/
+reports/
+*.log
+
+# Local data / volumes
+postgres_data/
+*.sqlite
+*.db
+
+# Docker
+.docker/

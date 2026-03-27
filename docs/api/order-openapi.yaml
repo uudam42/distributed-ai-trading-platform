@@ -1,0 +1,34 @@
+openapi: 3.1.0
+info:
+  title: Order Service
+  version: 0.1.0
+paths:
+  /orders:
+    post:
+      summary: Create order
+      responses:
+        '202': { description: Order accepted }
+    get:
+      summary: List orders
+      responses:
+        '200': { description: Orders returned }
+  /orders/{orderId}:
+    get:
+      summary: Get order by ID
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200': { description: Order returned }
+  /orders/{orderId}/cancel:
+    post:
+      summary: Cancel order
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '202': { description: Cancel requested }
